@@ -1,0 +1,161 @@
+name:                tencent-meeting
+version:             0.1.0.0
+synopsis:            Wrapper library for online meetings of Tecent
+-- description:
+license:             BSD3
+license-file:        LICENSE
+author:              Gilbert Fine
+maintainer:          gilbert.fine@gmail.com
+copyright:           2020 Gilbert Fine
+category:            Network
+build-type:          Simple
+extra-source-files:  README.md
+cabal-version:       >=1.10
+
+Flag dev
+    Description:   Turn on development settings, like disable optimization.
+    Default:       True
+
+Flag library-only
+    Description:   Build for library only
+    Default:       False
+
+library
+  hs-source-dirs:      src
+  default-language:    Haskell2010
+
+  exposed-modules:     Tencent.Meeting
+                       Tencent.Meeting.Types
+                       Tencent.Meeting.REST
+                       Tencent.Meeting.Error
+
+  build-depends:       base >= 4.7 && < 5
+                     , mtl
+                     , transformers
+                     , text
+                     , time
+                     , aeson
+                     , data-default
+                     , blaze-html
+                     , shakespeare
+                     , classy-prelude
+                     , persistent
+                     , random
+                     , safe
+                     , cryptohash
+                     , byteable
+                     , http-client
+                     , http-types
+                     , wreq
+                     , monad-logger
+                     , bytestring
+                     , base16-bytestring
+                     , base64-bytestring
+                     , lens
+
+  default-extensions: TemplateHaskell
+                      QuasiQuotes
+                      OverloadedStrings
+                      NoImplicitPrelude
+                      CPP
+                      MultiParamTypeClasses
+                      TypeFamilies
+                      GADTs
+                      GeneralizedNewtypeDeriving
+                      FlexibleContexts
+                      FlexibleInstances
+                      EmptyDataDecls
+                      NoMonomorphismRestriction
+                      DeriveDataTypeable
+                      ConstraintKinds
+                      DeriveGeneric
+                      RankNTypes
+                      FunctionalDependencies
+                      PartialTypeSignatures
+                      DataKinds
+                      TupleSections
+                      RecordWildCards
+
+  ghc-options:  -Wall -fwarn-tabs -fno-warn-partial-type-signatures -j
+
+  if flag(dev)
+      cpp-options:   -DDEVELOPMENT
+      -- ghc-options:   -O0 +RTS -A128m -n2m -RTS
+      -- haddock 目前不支付解释RTS选项，等haddock新版直接过滤掉RTS选项后就可以用以上选项
+      -- see: haddock issue #725
+  else
+      ghc-options:   -O
+
+
+executable tx-meeting-manage
+  if flag(library-only)
+      Buildable: False
+
+  main-is:             manage.hs
+  hs-source-dirs:      tools
+  build-depends:       classy-prelude
+                     , base
+                     , tencent-meeting
+                     , optparse-applicative
+                     , monad-logger
+                     , fast-logger
+                     , http-client
+                     , http-client-tls
+                     , wreq
+                     , lens
+                     , bytestring
+                     , transformers
+                     , monad-control
+                     , aeson-pretty
+                     , time
+                     , text
+                     , containers
+                     , unicode-show
+                     , safe
+                     , data-default
+
+  default-language:    Haskell2010
+
+  default-extensions: TemplateHaskell
+                      QuasiQuotes
+                      OverloadedStrings
+                      NoImplicitPrelude
+                      CPP
+                      RecordWildCards
+                      FlexibleContexts
+
+  ghc-options:  -Wall -fwarn-tabs -fno-warn-partial-type-signatures -j
+
+
+test-suite tx-meeting-test
+  type:                exitcode-stdio-1.0
+  hs-source-dirs:      test
+  main-is:             Spec.hs
+  build-depends:       base
+                     , classy-prelude
+                     , tencent-meeting
+                     , hspec
+                     , QuickCheck
+                     , time
+                     , aeson
+                     , mtl
+                     , data-default
+                     , lens
+
+  other-modules:       Tencent.Meeting.RESTSpec
+
+  default-extensions:  ConstraintKinds
+                       FlexibleContexts
+                       NoImplicitPrelude
+                       CPP
+                       OverloadedStrings
+                       GeneralizedNewtypeDeriving
+                       ExistentialQuantification
+                       StandaloneDeriving
+                       RankNTypes
+                       FlexibleInstances
+                       TemplateHaskell
+                       RecordWildCards
+
+  default-language:    Haskell2010
+  ghc-options:         -Wall
