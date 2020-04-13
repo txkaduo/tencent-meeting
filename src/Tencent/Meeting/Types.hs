@@ -175,8 +175,27 @@ showTimeStamp ts = show (posixSecondsToUTCTime ept)
   where ept = timestampToPOSIXTime ts
 
 
+-- | 有时候报文用零代表无此时间之意
+newtype ZeroOrTimestamp = ZeroOrTimestamp { unZeroOrTimestamp :: Maybe Timestamp }
+
+-- {{{1 instances
+instance ToJSON ZeroOrTimestamp where
+  toJSON (ZeroOrTimestamp Nothing) = toJSON (Nothing :: Maybe Int64)
+  toJSON (ZeroOrTimestamp (Just t)) = toJSON t
+
+instance FromJSON ZeroOrTimestamp where
+  parseJSON v = do
+    as_int <|> fmap ZeroOrTimestamp (parseJSON v)
+    where as_int = do
+            i <- parseJSON v
+            if i == 0
+               then pure (ZeroOrTimestamp Nothing)
+               else pure (ZeroOrTimestamp $ Just $ Timestamp i)
+-- }}}1
+
+
 data UserObj = UserObj
-  { _userObjUserId       :: UserId
+  { _userObjUserid       :: UserId
   , _userObjIsAnonymous  :: Bool
   , _userObjNickname     :: Maybe Text
   , _userObjProfilePhoto :: Maybe Text
@@ -190,7 +209,7 @@ instance Default (Reader UserId UserObj) where
 
 instance ToJSON UserObj where
   toJSON (UserObj {..}) = object $ catMaybes $
-    [ pure $ "userid" .= _userObjUserId
+    [ pure $ "userid" .= _userObjUserid
     , pure $ "is_anonymous" .= _userObjIsAnonymous
     , ("nick_name" .=) <$> _userObjNickname
     , ("profile_photo" .=) <$> _userObjProfilePhoto

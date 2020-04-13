@@ -202,27 +202,27 @@ restApiCall url_sub_path get_params m_body = do
         m_body' = fmap A.encode m_body
 
 
-data MeetingInfo = MeetingInfo
-  { _miSubject      :: Text
-  , _miMeetingId    :: MeetingId
-  , _miMeetingCode  :: MeetingCode
-  , _miPassword     :: Maybe Text
-  , _miHosts        :: [UserObj]
-  , _miParticipants :: Maybe [UserObj]
-  , _miStartTime    :: Timestamp
-  , _miEndTime      :: Timestamp
-  , _miJoinUrl      :: Text
-  , _miSettings     :: MeetingSettings
+-- | 多个接口有用到类似以下结构的报文，但又不完全一样
+data CreateMeetingInfo = CreateMeetingInfo
+  { _cmiSubject      :: Text
+  , _cmiMeetingId    :: MeetingId
+  , _cmiMeetingCode  :: MeetingCode
+  , _cmiPassword     :: Maybe Text
+  , _cmiHosts        :: [UserObj]
+  , _cmiParticipants :: Maybe [UserObj]
+  , _cmiStartTime    :: Timestamp
+  , _cmiEndTime      :: Timestamp
+  , _cmiJoinUrl      :: Text
+  , _cmiSettings     :: MeetingSettings
   }
-
-$(makeLenses ''MeetingInfo)
-$(deriveJSON (defaultOptions { fieldLabelModifier = camelTo2 '_' . drop 3 }) ''MeetingInfo)
+$(makeLenses ''CreateMeetingInfo)
+$(deriveJSON (defaultOptions { fieldLabelModifier = camelTo2 '_' . drop 4 }) ''CreateMeetingInfo)
 
 
 -- | 这个结构的报文用在多个接口的返回，创建会议，查询用户的会议列表等等
-data MeetingInfoList = MeetingInfoList
+data MeetingInfoList a = MeetingInfoList
   { _milMeetingNumber   :: Int
-  , _milMeetingInfoList :: [MeetingInfo]
+  , _milMeetingInfoList :: [a]
   }
 $(makeLenses ''MeetingInfoList)
 $(deriveJSON (defaultOptions { fieldLabelModifier = camelTo2 '_' . drop 4 }) ''MeetingInfoList)
@@ -246,7 +246,7 @@ restCreateMeeting :: MeetingType
                   -> Text -- ^ subject
                   -> (Timestamp, Timestamp)
                   -> CreateMeetingOptions
-                  -> RestApiMonad m MeetingInfoList
+                  -> RestApiMonad m (MeetingInfoList CreateMeetingInfo)
 -- {{{1
 restCreateMeeting meeting_type user_id dev_type subject (start_time, end_time) opts = do
   restApiCall "meetings" [] (Just body)
@@ -299,13 +299,20 @@ instance Default UpdateMeetingOpts where
   def = UpdateMeetingOpts Nothing Nothing Nothing Nothing Nothing Nothing
 
 
+data UpdateMeetingInfo = UpdateMeetingInfo
+  { _umiMeetingId    :: MeetingId
+  , _umiMeetingCode  :: MeetingCode
+  }
+$(makeLenses ''UpdateMeetingInfo)
+$(deriveJSON (defaultOptions { fieldLabelModifier = camelTo2 '_' . drop 4 }) ''UpdateMeetingInfo)
+
 -- | 修改会议
 restUpdateMeeting :: MeetingId
                   -> UserId
                   -> DeviceType
                   -> Text -- ^ subject
                   -> UpdateMeetingOpts
-                  -> RestApiMonad m MeetingInfoList
+                  -> RestApiMonad m (MeetingInfoList UpdateMeetingInfo)
 -- {{{1
 restUpdateMeeting meeting_id user_id dev_type subject (UpdateMeetingOpts {..}) = do
   restApiCall url_sub_path qs_items (Just body)
@@ -327,8 +334,21 @@ restUpdateMeeting meeting_id user_id dev_type subject (UpdateMeetingOpts {..}) =
 -- }}}1
 
 
+data QueryMeetingInfo = QueryMeetingInfo
+  { _qmiSubject      :: Text
+  , _qmiMeetingId    :: MeetingId
+  , _qmiMeetingCode  :: MeetingCode
+  , _qmiPassword     :: Maybe Text
+  , _qmiHosts        :: [UserObj]
+  , _qmiParticipants :: Maybe [UserObj]
+  , _qmiStartTime    :: Timestamp
+  , _qmiEndTime      :: Timestamp
+  }
+$(makeLenses ''QueryMeetingInfo)
+$(deriveJSON (defaultOptions { fieldLabelModifier = camelTo2 '_' . drop 4 }) ''QueryMeetingInfo)
+
 -- | 通过会议 ID 查询
-resetQueryMeetingById :: MeetingId -> UserId -> DeviceType -> RestApiMonad m MeetingInfoList
+resetQueryMeetingById :: MeetingId -> UserId -> DeviceType -> RestApiMonad m (MeetingInfoList QueryMeetingInfo)
 resetQueryMeetingById meeting_id user_id dev_type = do
   restApiCall url_sub_path qs_items (Nothing :: Maybe Value)
   where
@@ -339,7 +359,7 @@ resetQueryMeetingById meeting_id user_id dev_type = do
 
 
 -- | 通过会议 Code 查询
-resetQueryMeetingByCode :: MeetingCode -> UserId -> DeviceType -> RestApiMonad m MeetingInfoList
+resetQueryMeetingByCode :: MeetingCode -> UserId -> DeviceType -> RestApiMonad m (MeetingInfoList QueryMeetingInfo)
 resetQueryMeetingByCode meeting_code user_id dev_type = do
   restApiCall url_sub_path qs_items (Nothing :: Maybe Value)
   where
@@ -350,13 +370,22 @@ resetQueryMeetingByCode meeting_code user_id dev_type = do
                ]
 
 
+data Participant = Participant
+  { _pUserid   :: UserId
+  , _pJoinTime :: Timestamp
+  , _pLeftTime :: ZeroOrTimestamp
+  -- ^ 0 stands for Nothing
+  }
+$(makeLenses ''Participant)
+$(deriveJSON (defaultOptions { fieldLabelModifier = camelTo2 '_' . drop 2 }) ''Participant)
+
 data QueryParticipantsOutput = QueryParticipantsOutput
-  { _qpMeetingId      :: MeetingId
-  , _qpMeetingCode    :: MeetingCode
-  , _qpMeetingSubject :: Text
-  , _qpStartTime      :: Timestamp
-  , _qpEndTime        :: Timestamp
-  , _qpParticipants   :: [UserObj]
+  { _qpMeetingId         :: MeetingId
+  , _qpMeetingCode       :: MeetingCode
+  , _qpSubject           :: Text
+  , _qpScheduleStartTime :: Timestamp
+  , _qpScheduleEndTime   :: Timestamp
+  , _qpParticipants      :: [Participant]
   }
 $(makeLenses ''QueryParticipantsOutput)
 $(deriveJSON (defaultOptions { fieldLabelModifier = camelTo2 '_' . drop 3 }) ''QueryParticipantsOutput)
@@ -371,7 +400,7 @@ restQueryMeetingParticipants meeting_id user_id = do
 
 
 -- | 查询用户的会议列表
-restQueryMeetingsOfUser :: UserId -> DeviceType -> RestApiMonad m MeetingInfoList
+restQueryMeetingsOfUser :: UserId -> DeviceType -> RestApiMonad m (MeetingInfoList QueryMeetingInfo)
 restQueryMeetingsOfUser user_id dev_type = do
   restApiCall url_sub_path qs_items (Nothing :: Maybe Value)
   where

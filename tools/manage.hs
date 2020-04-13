@@ -80,6 +80,7 @@ timestampFromSpec spec = do
 data ManageCmd = Create UserId Text MeetingType DeviceType TimestampSpec TimestampSpec
                | QueryById MeetingId UserId DeviceType
                | QueryByCode MeetingCode UserId DeviceType
+               | Participants MeetingId UserId
                deriving (Show)
 
 manageCmdParser :: Parser ManageCmd
@@ -88,7 +89,7 @@ manageCmdParser = subparser $
   command "create"
     (info (helper <*> (pure Create
                         <*> fmap (UserId . fromString) (argument str (metavar "USER_ID"))
-                        <*> fmap fromString (argument str (metavar "PASSWORD"))
+                        <*> fmap fromString (argument str (metavar "SUBJECT"))
                         <*> argument readMeetingType (metavar "MEETING_TYPE")
                         <*> argument readDeviceType (metavar "DEVICE_TYPE")
                         <*> argument readTimestampSpec (metavar "START_TIME")
@@ -114,6 +115,14 @@ manageCmdParser = subparser $
                       )
           )
           (progDesc "通过会议 Code 查询")
+    )
+  <> command "participants"
+    (info (helper <*> (pure Participants
+                        <*> fmap (MeetingId . fromString) (argument str (metavar "MEETING_ID"))
+                        <*> fmap (UserId . fromString) (argument str (metavar "USER_ID"))
+                      )
+          )
+          (progDesc "获取参会成员列表")
     )
 -- }}}1
 
@@ -157,6 +166,9 @@ start (Options {..}) = flip runReaderT (optAppId, optSecretId, optSecretKey) $ d
 
     QueryByCode meeting_code user_id dev_type -> do
       resetQueryMeetingByCode meeting_code user_id dev_type >>= print_json_resp
+
+    Participants meeting_id user_id -> do
+      restQueryMeetingParticipants meeting_id user_id >>= print_json_resp
 
   where
     print_json_resp (Left e) = do
